@@ -1,9 +1,11 @@
 package com.example.simplemusicplayer
 
 import android.content.Context
+import android.content.Intent
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
@@ -19,6 +21,8 @@ class MainActivity : AppCompatActivity(), Runnable, SeekBar.OnSeekBarChangeListe
     private val handler = Handler()
     private var totalTime: Int = 0
     private lateinit var  audioManager:AudioManager
+    private val openRequestCode=1
+    private lateinit var uri:Uri
 
     @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,17 +34,7 @@ class MainActivity : AppCompatActivity(), Runnable, SeekBar.OnSeekBarChangeListe
         volumeBar.progress=audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
 
         if (savedInstanceState == null) {
-            mp = MediaPlayer.create(this, R.raw.music)
-            mp.isLooping = true
-            mp.setAudioAttributes(
-                AudioAttributes.Builder().setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
-            )
-            mp.setVolume(1f, 1f)
-            totalTime = mp.duration
-            updateUI()
-            playBar.max = totalTime
-            volumeBar.setOnSeekBarChangeListener(this)
-            playBar.setOnSeekBarChangeListener(this)
+            initPlayer(null)
         }
     }
 
@@ -55,6 +49,24 @@ class MainActivity : AppCompatActivity(), Runnable, SeekBar.OnSeekBarChangeListe
         super.onBackPressed()
         mp.release()
         handler.removeCallbacks(this)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
+    private fun initPlayer(uri: Uri?){
+        mp = if(uri==null)
+            MediaPlayer.create(this, R.raw.music)
+        else
+            MediaPlayer.create(this, uri)
+        mp.isLooping = true
+        mp.setAudioAttributes(
+            AudioAttributes.Builder().setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
+        )
+        mp.setVolume(1f, 1f)
+        totalTime = mp.duration
+        updateUI()
+        playBar.max = totalTime
+        volumeBar.setOnSeekBarChangeListener(this)
+        playBar.setOnSeekBarChangeListener(this)
     }
 
     private fun updateUI() {
@@ -94,6 +106,10 @@ class MainActivity : AppCompatActivity(), Runnable, SeekBar.OnSeekBarChangeListe
     }
 
     fun playMusic(v: View) {
+        playMusic()
+    }
+
+    fun playMusic(){
         if (mp.isPlaying) {
             // Stop
             mp.pause()
@@ -105,6 +121,27 @@ class MainActivity : AppCompatActivity(), Runnable, SeekBar.OnSeekBarChangeListe
             handler.removeCallbacks(this)
             handler.post(this)
             playButton.setBackgroundResource(R.drawable.stop)
+        }
+    }
+
+    fun openFile(view: View) {
+        val intent=Intent(Intent.ACTION_OPEN_DOCUMENT)
+        intent.addCategory(Intent.CATEGORY_OPENABLE)
+        intent.type="audio/*"
+
+        startActivityForResult(intent, openRequestCode)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if(requestCode==openRequestCode){
+            if (data != null) {
+                uri= data.data!!
+                mp.release()
+                handler.removeCallbacks(this)
+                playMusic()
+            }
         }
     }
 
